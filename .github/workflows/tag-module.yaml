@@ -1,0 +1,44 @@
+name: Create git tag
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+    branches:
+      - main
+    paths:
+      - "**.tf"
+  pull_request_target:
+    types: [closed]
+    branches:
+      - main
+    paths:
+      - "**.tf"
+
+  repository_dispatch:
+    types: [create_release, update_wiki]
+
+jobs:
+  pr:
+    if: github.event_name != 'repository_dispatch'
+    uses: miljodir/workflow-templates/.github/workflows/generate-release-metadata.yaml@generate-release-metadata/v1
+    permissions:
+      contents: write
+      pull-requests: write
+    with:
+      rootFolder: /
+      type: terraform
+      index-split: 0
+      wiki-enabled: true
+
+  tag:
+    if: github.event_name == 'repository_dispatch' && github.event.action == 'create_release'
+    uses: miljodir/workflow-templates/.github/workflows/create-release.yaml@create-release/v1
+    permissions:
+      contents: write
+    with:
+      payload: ${{ toJson(github.event.client_payload) }}
+
+  wiki:
+    if: github.event_name == 'repository_dispatch' && github.event.action == 'update_wiki'
+    uses: miljodir/workflow-templates/.github/workflows/update-wiki.yaml@update-wiki/v1
+    permissions:
+      contents: write
