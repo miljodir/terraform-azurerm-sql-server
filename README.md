@@ -1,2 +1,4 @@
-# terraform-azurerm-template
-Template file for creating public terraform modules which can be pushed to the Terraform registry
+# SQL Server
+
+Creates an Azure SQL Server with databases.
+By default, local authentication and public network access is disabled.
