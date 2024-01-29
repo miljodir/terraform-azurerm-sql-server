@@ -108,7 +108,7 @@ resource "azurerm_mssql_database" "db" {
 }
 
 resource "azurerm_mssql_firewall_rule" "sql" {
-  for_each         = var.publicly_available == true ? var.firewall_rules : []
+  for_each         = var.firewall_rules
   name             = each.key
   server_id        = azurerm_mssql_server.sqlsrv.id
   start_ip_address = each.value.start_ip_address
