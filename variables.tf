@@ -100,6 +100,15 @@ variable "unique" {
   }
 }
 
+variable "firewall_rules" {
+  type = map(object({
+    start_ip_address = optional(string)
+    end_ip_address   = optional(string)
+  }))
+  description = "Map of objects containing information on firewall rules to be created."
+  default     = null
+}
+
 variable "databases" {
   type = map(object({
     sku_name                    = optional(string),           # Sku name for database. Many possibilities .Defaults to "GP_S_Gen5_1" which means serverless 1 vcore.

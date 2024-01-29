@@ -107,6 +107,14 @@ resource "azurerm_mssql_database" "db" {
   }
 }
 
+resource "azurerm_mssql_firewall_rule" "sql" {
+  for_each         = var.publicly_available == true ? var.firewall_rules : []
+  name             = each.key
+  server_id        = azurerm_mssql_server.sqlsrv.id
+  start_ip_address = each.value.start_ip_address
+  end_ip_address   = each.value.end_ip_address
+}
+
 resource "azurerm_private_endpoint" "sqlsrv_pe" {
   count               = var.create_private_endpoint == true ? 1 : 0
   location            = azurerm_mssql_server.sqlsrv.location
