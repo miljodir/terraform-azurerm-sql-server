@@ -106,7 +106,7 @@ variable "firewall_rules" {
     end_ip_address   = optional(string)
   }))
   description = "Map of objects containing information on firewall rules to be created."
-  default     = null
+  default     = {}
 }
 
 variable "databases" {
