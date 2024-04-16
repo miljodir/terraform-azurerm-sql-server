@@ -86,6 +86,7 @@ resource "azurerm_mssql_database" "db" {
   max_size_gb                 = !startswith(each.value.sku_name, "GP_S") ? try(each.value.max_size_gb, 32) : try(each.value.max_size_gb, 50)
   create_mode                 = each.value.create_mode
   creation_source_database_id = each.value.create_mode != "Default" && each.value.creation_source_database_id != null ? each.value.creation_source_database_id : null
+  enclave_type                = each.value.create_mode == "Copy" ? "Default" : null
 
   restore_point_in_time = each.value.create_mode == "PointInTimeRestore" && each.value.restore_point_in_time != null ? each.value.restore_point_in_time : null
   dynamic "long_term_retention_policy" {
