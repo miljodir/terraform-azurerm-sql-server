@@ -39,7 +39,7 @@ resource "azurerm_resource_group" "sql" {
 }
 
 locals {
-  minimum_tls_version = var.minimum_tls_version != null ? var.minimum_tls_version : startswith(local.server_name, "d-") ? "1.3" : "1.2"
+  minimum_tls_version = startswith(local.server_name, "d-") ? "1.3" : var.minimum_tls_version
 }
 
 resource "azurerm_mssql_server" "sqlsrv" {
