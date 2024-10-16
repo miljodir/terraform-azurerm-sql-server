@@ -1,5 +1,5 @@
 locals {
-  name_prefix         = data.azurerm_subscription.current.display_name
+  name_prefix         = var.name_prefix
   resource_group_name = var.create_resource_group == true ? azurerm_resource_group.sql[0].name : data.azurerm_resource_group.rg[0].name
   unique              = var.unique == null ? random_string.unique[0].result : var.unique
   enable_local_auth   = var.azuread_administrator[0].azuread_authentication_only == true ? false : true
@@ -31,7 +31,7 @@ resource "random_string" "unique" {
 
 resource "azurerm_resource_group" "sql" {
   count    = var.create_resource_group == true ? 1 : 0
-  name     = local.resource_group_name
+  name     = "${local.name_prefix}-sql" 
   location = var.location
   lifecycle {
     ignore_changes = [tags]

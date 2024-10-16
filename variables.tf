@@ -146,6 +146,12 @@ variable "password_length" {
   default     = 16
 }
 
+variable "name_prefix" {
+  type        = string
+  description = "Prefix for all resources. Defaults to 'sql'."
+  default     = null
+}
+
 ##############################################################################
 #                        Retention policies                                  #
 ##############################################################################
