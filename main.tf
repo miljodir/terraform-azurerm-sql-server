@@ -31,7 +31,7 @@ resource "random_string" "unique" {
 
 resource "azurerm_resource_group" "sql" {
   count    = var.create_resource_group == true ? 1 : 0
-  name     = "${local.name_prefix}-sql"
+  name     = local.resource_group_name
   location = var.location
   lifecycle {
     ignore_changes = [tags]
