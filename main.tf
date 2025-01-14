@@ -116,6 +116,13 @@ resource "azurerm_mssql_firewall_rule" "sql" {
   end_ip_address   = each.value.end_ip_address
 }
 
+resource "azurerm_mssql_virtual_network_rule" "sql" {
+  for_each  = var.virtual_network_rules
+  name      = each.key
+  server_id = azurerm_mssql_server.sqlsrv.id
+  subnet_id = each.value.subnet_id
+}
+
 resource "azurerm_private_endpoint" "sqlsrv_pe" {
   count               = var.create_private_endpoint == true ? 1 : 0
   location            = azurerm_mssql_server.sqlsrv.location
