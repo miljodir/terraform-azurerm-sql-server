@@ -135,6 +135,12 @@ resource "azurerm_private_endpoint" "sqlsrv_pe" {
     private_connection_resource_id = azurerm_mssql_server.sqlsrv.id
     subresource_names              = ["sqlServer"]
   }
+
+  lifecycle {
+    ignore_changes = [
+      private_dns_zone_group,
+    ]
+  }
 }
 
 resource "azurerm_private_dns_a_record" "sqlsrv_pe_dns" {
