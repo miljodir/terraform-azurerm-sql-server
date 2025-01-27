@@ -4,10 +4,17 @@ locals {
   unique              = var.unique == null ? random_string.unique[0].result : var.unique
   enable_local_auth   = var.azuread_administrator[0].azuread_authentication_only == true ? false : true
   server_name         = var.server_name != null ? var.server_name : "${local.name_prefix}-sql${local.unique}-sqlsvr"
+  publicly_available  = split(local.name_prefix, "-")[0] == "d" ? true : var.publicly_available == true ? true : false
 }
 
 data "azurerm_subscription" "current" {}
 
+
+module "network_vars" {
+  # module used for public IP whitelisting
+  count  = split(local.name_prefix, "-")[0] == "d" ? 1 : 0
+  source = "git@github.com:miljodir/cp-shared.git//modules/public_nw_ips?ref=public_nw_ips/v1"
+}
 
 resource "random_password" "password" {
   count            = local.enable_local_auth == true ? 1 : 0
@@ -48,7 +55,7 @@ resource "azurerm_mssql_server" "sqlsrv" {
   version                                      = "12.0"
   transparent_data_encryption_key_vault_key_id = var.transparent_data_encryption_key_vault_key_id != null ? var.transparent_data_encryption_key_vault_key_id : null
 
-  public_network_access_enabled = var.publicly_available
+  public_network_access_enabled = local.publicly_available
 
   dynamic "azuread_administrator" {
     for_each = var.azuread_administrator[0].login_username != "" ? [1] : []
@@ -110,6 +117,14 @@ resource "azurerm_mssql_database" "db" {
 
 resource "azurerm_mssql_firewall_rule" "sql" {
   for_each         = var.firewall_rules
+  name             = each.key
+  server_id        = azurerm_mssql_server.sqlsrv.id
+  start_ip_address = each.value.start_ip_address
+  end_ip_address   = each.value.end_ip_address
+}
+
+resource "azurerm_mssql_firewall_rule" "known_pips" {
+  for_each         = module.network_vars[0].known_public_ips
   name             = each.key
   server_id        = azurerm_mssql_server.sqlsrv.id
   start_ip_address = each.value.start_ip_address
