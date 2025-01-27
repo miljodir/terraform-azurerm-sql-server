@@ -124,7 +124,10 @@ resource "azurerm_mssql_firewall_rule" "sql" {
 }
 
 resource "azurerm_mssql_firewall_rule" "known_pips" {
-  for_each         = module.network_vars[0].known_public_ips
+  for_each = {
+    for key, value in module.network_vars[0].known_public_ips : key => value
+    if split(local.name_prefix, "-")[0] == "d" ? true : false
+  }
   name             = each.key
   server_id        = azurerm_mssql_server.sqlsrv.id
   start_ip_address = each.value.start_ip_address
