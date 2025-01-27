@@ -12,7 +12,7 @@ data "azurerm_subscription" "current" {}
 
 module "network_vars" {
   # module used for public IP whitelisting
-  count  = split(local.name_prefix, "-")[0] == "d" ? 1 : 0
+  count  = 1 #split(local.name_prefix, "-")[0] == "d" ? 1 : 0
   source = "git@github.com:miljodir/cp-shared.git//modules/public_nw_ips?ref=public_nw_ips/v1"
 }
 
