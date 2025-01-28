@@ -154,4 +154,11 @@ resource "azurerm_private_dns_a_record" "sqlsrv_pe_dns" {
   zone_name           = "privatelink.database.windows.net"
 
   provider = azurerm.p-dns
+
+  lifecycle {
+    ignore_changes = [
+      ttl,
+      tags,
+    ]
+  }
 }
