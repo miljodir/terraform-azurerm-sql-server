@@ -1,10 +1,11 @@
 locals {
-  name_prefix         = data.azurerm_subscription.current.display_name
-  resource_group_name = var.create_resource_group == true ? azurerm_resource_group.sql[0].name : data.azurerm_resource_group.rg[0].name
-  unique              = var.unique == null ? random_string.unique[0].result : var.unique
-  enable_local_auth   = var.azuread_administrator[0].azuread_authentication_only == true ? false : true
-  server_name         = var.server_name != null ? var.server_name : "${local.name_prefix}-sql${local.unique}-sqlsvr"
-  publicly_available  = split("-", local.name_prefix)[0] == "d" ? true : var.publicly_available == true ? true : false
+  name_prefix                   = data.azurerm_subscription.current.display_name
+  resource_group_name           = var.create_resource_group == true ? azurerm_resource_group.sql[0].name : data.azurerm_resource_group.rg[0].name
+  unique                        = var.unique == null ? random_string.unique[0].result : var.unique
+  enable_local_auth             = var.azuread_administrator[0].azuread_authentication_only == true ? false : true
+  server_name                   = var.server_name != null ? var.server_name : "${local.name_prefix}-sql${local.unique}-sqlsvr"
+  public_network_access_enabled = local.allow_known_pips ? true : var.publicly_available ? true : false
+  allow_known_pips              = split("-", local.name_prefix)[0] == "d" ? true : false
 }
 
 data "azurerm_subscription" "current" {}
@@ -12,7 +13,7 @@ data "azurerm_subscription" "current" {}
 
 module "network_vars" {
   # private module used for public IP whitelisting
-  count  = local.publicly_available == true ? 1 : 0
+  count  = local.allow_known_pips == true ? 1 : 0
   source = "git@github.com:miljodir/cp-shared.git//modules/public_nw_ips?ref=public_nw_ips/v1"
 }
 
@@ -55,7 +56,7 @@ resource "azurerm_mssql_server" "sqlsrv" {
   version                                      = "12.0"
   transparent_data_encryption_key_vault_key_id = var.transparent_data_encryption_key_vault_key_id != null ? var.transparent_data_encryption_key_vault_key_id : null
 
-  public_network_access_enabled = local.publicly_available
+  public_network_access_enabled = local.public_network_access_enabled
 
   dynamic "azuread_administrator" {
     for_each = var.azuread_administrator[0].login_username != "" ? [1] : []
