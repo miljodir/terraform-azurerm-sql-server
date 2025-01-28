@@ -11,7 +11,7 @@ data "azurerm_subscription" "current" {}
 
 
 module "network_vars" {
-  # module used for public IP whitelisting
+  # private module used for public IP whitelisting
   count  = local.publicly_available == true ? 1 : 0
   source = "git@github.com:miljodir/cp-shared.git//modules/public_nw_ips?ref=public_nw_ips/v1"
 }
