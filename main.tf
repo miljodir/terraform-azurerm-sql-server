@@ -87,7 +87,7 @@ resource "azurerm_mssql_database" "db" {
   server_id                   = azurerm_mssql_server.sqlsrv.id
   sku_name                    = each.value.sku_name != null ? each.value.sku_name : "GP_S_Gen5_1"
   min_capacity                = !startswith(each.value.sku_name, "GP_S") ? 0 : try(each.value.min_capacity, 0.5)
-  auto_pause_delay_in_minutes = !startswith(each.value.sku_name, "GP_S") ? 0 : try(each.value.auto_pause_delay_in_minutes, 60)
+  auto_pause_delay_in_minutes = !startswith(each.value.sku_name, "GP_S") ? 0 : try(each.value.auto_pause_delay_in_minutes, 30)
   storage_account_type        = each.value.storage_account_type != null ? each.value.storage_account_type : "Local"
   license_type                = each.value.capacity_unit == "Provisioned" && each.value.license_type != null ? each.value.license_type : null
   collation                   = each.value.collation != null ? each.value.collation : "Danish_Norwegian_CI_AS"
