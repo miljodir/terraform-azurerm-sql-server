@@ -160,22 +160,9 @@ resource "azurerm_private_endpoint" "sqlsrv_pe" {
   }
 }
 
-resource "azurerm_private_dns_a_record" "sqlsrv_pe_dns" {
-  count = var.create_private_endpoint == true ? 1 : 0
-  name  = azurerm_mssql_server.sqlsrv.name
-  records = [
-    azurerm_private_endpoint.sqlsrv_pe[0].private_service_connection[0].private_ip_address
-  ]
-  resource_group_name = var.dns_resource_group_name
-  ttl                 = 600
-  zone_name           = "privatelink.database.windows.net"
-
-  provider = azurerm.p-dns
-
+removed {
+  from = azurerm_private_dns_a_record.sqlsrv_pe_dns
   lifecycle {
-    ignore_changes = [
-      ttl,
-      tags,
-    ]
+    destroy = false
   }
 }
