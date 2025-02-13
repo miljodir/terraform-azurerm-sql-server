@@ -31,7 +31,7 @@ resource "random_string" "unique" {
 
 resource "azurerm_resource_group" "sql" {
   count    = var.create_resource_group == true ? 1 : 0
-  name     = "${local.name_prefix}-sql" 
+  name     = "${local.name_prefix}-sql"
   location = var.location
   lifecycle {
     ignore_changes = [tags]
@@ -128,17 +128,17 @@ resource "azurerm_private_endpoint" "sqlsrv_pe" {
     private_connection_resource_id = azurerm_mssql_server.sqlsrv.id
     subresource_names              = ["sqlServer"]
   }
+
+  lifecycle {
+    ignore_changes = [
+      private_dns_zone_group
+    ]
+  }
 }
 
-resource "azurerm_private_dns_a_record" "sqlsrv_pe_dns" {
-  count = var.create_private_endpoint == true ? 1 : 0
-  name  = azurerm_mssql_server.sqlsrv.name
-  records = [
-    azurerm_private_endpoint.sqlsrv_pe[0].private_service_connection[0].private_ip_address
-  ]
-  resource_group_name = var.dns_resource_group_name
-  ttl                 = 600
-  zone_name           = "privatelink.database.windows.net"
-
-  provider = azurerm.p-dns
+removed {
+  from = azurerm_private_dns_a_record.sqlsrv_pe_dns
+  lifecycle {
+    destroy = false
+  }
 }
