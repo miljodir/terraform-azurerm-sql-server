@@ -88,7 +88,7 @@ resource "azurerm_mssql_database" "db" {
   sku_name                    = each.value.sku_name != null ? each.value.sku_name : "GP_S_Gen5_1"
   min_capacity                = !startswith(each.value.sku_name, "GP_S") ? 0 : try(each.value.min_capacity, 0.5)
   auto_pause_delay_in_minutes = !startswith(each.value.sku_name, "GP_S") ? null : try(each.value.auto_pause_delay_in_minutes, 60)
-  storage_account_type        = each.value.storage_account_type != null ? each.value.storage_account_type : "Local"
+  storage_account_type        = each.value.storage_account_type != null ? (each.value.storage_account_type ? (startswith(local.name_prefix, "p-") ? "Geo" : "Local") : "Local") : "Local"
   license_type                = each.value.capacity_unit == "Provisioned" && each.value.license_type != null ? each.value.license_type : null
   collation                   = each.value.collation != null ? each.value.collation : "Danish_Norwegian_CI_AS"
   max_size_gb                 = !startswith(each.value.sku_name, "GP_S") ? try(each.value.max_size_gb, 32) : try(each.value.max_size_gb, 50)
