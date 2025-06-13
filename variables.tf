@@ -109,6 +109,15 @@ variable "firewall_rules" {
   default     = {}
 }
 
+variable "virtual_network_rules" {
+  type = map(object({
+    subnet_id = optional(string)
+  }))
+  description = "Map of objects containing information on virtual network rules to be created. A service endpoint for Microsoft.Sql is required at the target subnet."
+  default     = {}
+
+}
+
 variable "databases" {
   type = map(object({
     sku_name                    = optional(string),           # Sku name for database. Many possibilities .Defaults to "GP_S_Gen5_1" which means serverless 1 vcore.
