@@ -155,6 +155,13 @@ variable "password_length" {
   default     = 16
 }
 
+variable "express_vulnerability_assessment_enabled" {
+  type        = bool
+  description = "Enable Express Vulnerability Assessment for SQL server? Defaults to false."
+  default     = false
+
+}
+
 ##############################################################################
 #                        Retention policies                                  #
 ##############################################################################
