@@ -57,7 +57,7 @@ variable "minimum_tls_version" {
   default     = "1.2"
 
   validation {
-    condition     = (contains(["1.0", "1.1", "1.2"], var.minimum_tls_version))
+    condition     = (contains(["1.0", "1.1", "1.2", "1.3"], var.minimum_tls_version))
     error_message = "Valid values are '1.0', '1.1', or '1.2'."
   }
 }

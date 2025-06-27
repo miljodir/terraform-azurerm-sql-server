@@ -48,6 +48,10 @@ resource "azurerm_resource_group" "sql" {
   }
 }
 
+locals {
+  minimum_tls_version = startswith(local.server_name, "d-") ? "1.3" : var.minimum_tls_version
+}
+
 resource "azurerm_mssql_server" "sqlsrv" {
   administrator_login                          = local.enable_local_auth ? var.admin_username : null
   administrator_login_password                 = local.enable_local_auth ? random_password.password[0].result : null
