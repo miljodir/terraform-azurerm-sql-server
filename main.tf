@@ -6,6 +6,8 @@ locals {
   server_name                   = var.server_name != null ? var.server_name : "${local.name_prefix}-sql${local.unique}-sqlsvr"
   public_network_access_enabled = local.allow_known_pips ? true : var.publicly_available ? true : false
   allow_known_pips              = split("-", local.name_prefix)[0] == "d" ? true : false
+
+  express_vulnerability_assessment_enabled = var.express_vulnerability_assessment_enabled == true || startswith(local.name_prefix, "p") ? true : false
 }
 
 data "azurerm_subscription" "current" {}
@@ -55,6 +57,7 @@ resource "azurerm_mssql_server" "sqlsrv" {
   minimum_tls_version                          = var.minimum_tls_version
   version                                      = "12.0"
   transparent_data_encryption_key_vault_key_id = var.transparent_data_encryption_key_vault_key_id != null ? var.transparent_data_encryption_key_vault_key_id : null
+  express_vulnerability_assessment_enabled     = local.express_vulnerability_assessment_enabled
 
   public_network_access_enabled = local.public_network_access_enabled
 
