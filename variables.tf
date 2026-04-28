@@ -118,6 +118,29 @@ variable "virtual_network_rules" {
 
 }
 
+variable "elastic_pool" {
+  type = object({
+    name                           = optional(string)
+    license_type                   = optional(string, "LicenseIncluded")
+    maintenance_configuration_name = optional(string, "SQL_Default")
+    max_size_bytes                 = optional(number)
+    max_size_gb                    = optional(number, 50)
+    per_database_settings = optional(object({
+      min_capacity = optional(number, 0)
+      max_capacity = optional(number, 2)
+    }), {})
+    sku = optional(object({
+      name     = optional(string, "GP_Gen5")
+      capacity = optional(number, 2)
+      tier     = optional(string, "GeneralPurpose")
+      family   = optional(string, "Gen5")
+    }), {})
+    zone_redundant = optional(bool, true)
+  })
+  description = "Optional elastic pool configuration for databases created by this module. When set, the module provisions an elastic pool using the Azure AVM elasticpool submodule and assigns all databases to it."
+  default     = null
+}
+
 variable "databases" {
   type = map(object({
     sku_name                    = optional(string),           # Sku name for database. Many possibilities .Defaults to "GP_S_Gen5_1" which means serverless 1 vcore.

@@ -4,6 +4,13 @@ locals {
   unique                        = var.unique == null ? random_string.unique[0].result : var.unique
   enable_local_auth             = var.azuread_administrator[0].azuread_authentication_only == true ? false : true
   server_name                   = var.server_name != null ? var.server_name : "${local.name_prefix}-sql${local.unique}-sqlsvr"
+  elastic_pool_enabled          = var.elastic_pool != null
+  elastic_pool_name             = try(var.elastic_pool.name, null) != null ? var.elastic_pool.name : "${local.server_name}-pool"
+  elastic_pool_per_database_settings = try(var.elastic_pool.per_database_settings, {
+    min_capacity = 0
+    max_capacity = 2
+  })
+  elastic_pool_sku = try(var.elastic_pool.sku, null)
   public_network_access_enabled = local.allow_known_pips ? true : var.publicly_available ? true : false
   allow_known_pips              = split("-", local.name_prefix)[0] == "d" ? true : false
 
@@ -80,6 +87,26 @@ resource "azurerm_mssql_server" "sqlsrv" {
   }
 }
 
+module "elastic_pool" {
+  count  = local.elastic_pool_enabled == true ? 1 : 0
+  source = "git::https://github.com/Azure/terraform-azurerm-avm-res-sql-server.git//modules/elasticpool?ref=v0.2.0"
+
+  location = var.location
+  name     = local.elastic_pool_name
+
+  license_type                   = try(var.elastic_pool.license_type, "LicenseIncluded")
+  maintenance_configuration_name = try(var.elastic_pool.maintenance_configuration_name, "SQL_Default")
+  max_size_bytes                 = try(var.elastic_pool.max_size_bytes, null)
+  max_size_gb                    = try(var.elastic_pool.max_size_gb, 50)
+  per_database_settings          = local.elastic_pool_per_database_settings
+  sku                            = local.elastic_pool_sku
+  zone_redundant                 = try(var.elastic_pool.zone_redundant, true)
+
+  sql_server = {
+    resource_id = azurerm_mssql_server.sqlsrv.id
+  }
+}
+
 resource "azurerm_mssql_database" "db" {
   for_each = var.databases
 
@@ -88,15 +115,16 @@ resource "azurerm_mssql_database" "db" {
   # License type not allowed for serverless databases
   name                        = each.key
   server_id                   = azurerm_mssql_server.sqlsrv.id
-  sku_name                    = each.value.sku_name != null ? each.value.sku_name : "GP_S_Gen5_1"
-  min_capacity                = !startswith(each.value.sku_name, "GP_S") ? 0 : try(each.value.min_capacity, 0.5)
-  auto_pause_delay_in_minutes = !startswith(each.value.sku_name, "GP_S") ? null : try(each.value.auto_pause_delay_in_minutes, 60)
+  elastic_pool_id             = local.elastic_pool_enabled == true ? module.elastic_pool[0].resource_id : null
+  sku_name                    = each.value.sku_name != null ? each.value.sku_name : local.elastic_pool_enabled == true ? "ElasticPool" : "GP_S_Gen5_1"
+  min_capacity                = local.elastic_pool_enabled == true || !startswith(coalesce(each.value.sku_name, "GP_S_Gen5_1"), "GP_S") ? null : try(each.value.min_capacity, 0.5)
+  auto_pause_delay_in_minutes = local.elastic_pool_enabled == true || !startswith(coalesce(each.value.sku_name, "GP_S_Gen5_1"), "GP_S") ? null : try(each.value.auto_pause_delay_in_minutes, 60)
   storage_account_type        = each.value.storage_account_type != null ? each.value.storage_account_type : startswith(local.name_prefix, "p-") ? "Geo" : "Local"
 
   #   public_network_access_enabled = local.allow_known_pips ? true : var.publicly_available ? true : false
-  license_type                = each.value.capacity_unit == "Provisioned" && each.value.license_type != null ? each.value.license_type : null
+  license_type                = local.elastic_pool_enabled == true ? null : each.value.capacity_unit == "Provisioned" && each.value.license_type != null ? each.value.license_type : null
   collation                   = each.value.collation != null ? each.value.collation : "Danish_Norwegian_CI_AS"
-  max_size_gb                 = !startswith(each.value.sku_name, "GP_S") ? try(each.value.max_size_gb, 32) : try(each.value.max_size_gb, 50)
+  max_size_gb                 = !startswith(coalesce(each.value.sku_name, local.elastic_pool_enabled == true ? "ElasticPool" : "GP_S_Gen5_1"), "GP_S") ? try(each.value.max_size_gb, 32) : try(each.value.max_size_gb, 50)
   create_mode                 = each.value.create_mode
   creation_source_database_id = each.value.create_mode != "Default" && each.value.creation_source_database_id != null ? each.value.creation_source_database_id : null
   enclave_type                = each.value.create_mode == "Copy" ? "Default" : null
@@ -106,7 +134,7 @@ resource "azurerm_mssql_database" "db" {
     # Long term retention policy not allowed for serverless databases with auto-pause enabled.
     # Therefore the "hacky" determination of enabling LTR or not.
     # This logic will enable LTR by default if supported.
-    for_each = each.value.capacity_unit == "Provisioned" || each.value.auto_pause_delay_in_minutes == -1 ? ["true"] : []
+    for_each = local.elastic_pool_enabled == true || each.value.capacity_unit == "Provisioned" || each.value.auto_pause_delay_in_minutes == -1 ? ["true"] : []
     content {
       monthly_retention = lookup(long_term_retention_policy, "monthly_retention", "P6M")
       week_of_year      = lookup(long_term_retention_policy, "week_of_year", 1)
@@ -118,6 +146,18 @@ resource "azurerm_mssql_database" "db" {
   short_term_retention_policy {
     retention_days           = each.value.short_term_retention_policy == null ? 7 : each.value.short_term_retention_policy.retention_days
     backup_interval_in_hours = each.value.short_term_retention_policy == null ? 12 : each.value.short_term_retention_policy.backup_interval_in_hours
+  }
+
+  lifecycle {
+    precondition {
+      condition     = local.elastic_pool_enabled == false || each.value.sku_name == null || each.value.sku_name == "ElasticPool"
+      error_message = "When elastic_pool is set, database sku_name must be null or ElasticPool."
+    }
+
+    precondition {
+      condition     = local.elastic_pool_enabled == false || alltrue([each.value.capacity_unit == null, each.value.min_capacity == null, each.value.auto_pause_delay_in_minutes == null, each.value.license_type == null])
+      error_message = "When elastic_pool is set, database-specific serverless or provisioned compute settings must be omitted and configured through elastic_pool instead."
+    }
   }
 }
 
