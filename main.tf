@@ -6,16 +6,11 @@ locals {
   server_name                   = var.server_name != null ? var.server_name : "${local.name_prefix}-sql${local.unique}-sqlsvr"
   elastic_pool_enabled          = var.elastic_pool != null
   elastic_pool_name             = try(var.elastic_pool.name, null) != null ? var.elastic_pool.name : "${local.server_name}-pool"
-  elastic_pool_per_database_settings = var.elastic_pool != null ? var.elastic_pool.per_database_settings : {
+  elastic_pool_per_database_settings = try(var.elastic_pool.per_database_settings, {
     min_capacity = 0
-    max_capacity = 25
-  }
-  elastic_pool_sku = var.elastic_pool != null ? var.elastic_pool.sku : {
-    name     = "PremiumPool"
-    capacity = 125
-    tier     = "Premium"
-    family   = null
-  }
+    max_capacity = 2
+  })
+  elastic_pool_sku = try(var.elastic_pool.sku, null)
   public_network_access_enabled = local.allow_known_pips ? true : var.publicly_available ? true : false
   allow_known_pips              = split("-", local.name_prefix)[0] == "d" ? true : false
 

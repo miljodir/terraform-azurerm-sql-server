@@ -127,14 +127,14 @@ variable "elastic_pool" {
     max_size_gb                    = optional(number, 50)
     per_database_settings = optional(object({
       min_capacity = optional(number, 0)
-      max_capacity = optional(number, 25)
+      max_capacity = optional(number, 2)
     }), {})
-    sku = object({
-      name     = string
-      capacity = number
-      tier     = string
-      family   = optional(string)
-    })
+    sku = optional(object({
+      name     = optional(string, "GP_Gen5")
+      capacity = optional(number, 2)
+      tier     = optional(string, "GeneralPurpose")
+      family   = optional(string, "Gen5")
+    }), {})
     zone_redundant = optional(bool, true)
   })
   description = "Optional elastic pool configuration for databases created by this module. When set, the module provisions an elastic pool using the Azure AVM elasticpool submodule and assigns all databases to it."
