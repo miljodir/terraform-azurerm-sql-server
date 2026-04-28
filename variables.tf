@@ -137,7 +137,7 @@ variable "elastic_pool" {
     }), {})
     zone_redundant = optional(bool, true)
   })
-  description = "Optional elastic pool configuration for databases created by this module. When set, the module provisions an elastic pool using the Azure AVM elasticpool submodule and assigns all databases to it."
+  description = "Optional elastic pool configuration for databases created by this module. When set, the module provisions an elastic pool using the Azure AVM elasticpool submodule and assigns all databases to it by default. Individual databases can opt out by setting use_elastic_pool = false in their database configuration."
   default     = null
 }
 
@@ -164,6 +164,7 @@ variable "databases" {
       backup_interval_in_hours = optional(number) # See own comment below
       retention_days           = optional(number) # See own comment below
     }))
+    use_elastic_pool = optional(bool) # Whether this database should be placed in the elastic pool. Defaults to true when an elastic pool is configured on the module. Set to false to opt out and use a standalone SKU instead.
     })
   )
   description = "Map of objects containing information on databases to be created."

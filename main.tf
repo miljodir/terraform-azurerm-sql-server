@@ -11,6 +11,10 @@ locals {
     max_capacity = 2
   })
   elastic_pool_sku = try(var.elastic_pool.sku, null)
+  # Per-database flag: true when the module has an elastic pool AND the database has not explicitly opted out.
+  db_uses_elastic_pool = {
+    for k, v in var.databases : k => local.elastic_pool_enabled && v.use_elastic_pool != false
+  }
   public_network_access_enabled = local.allow_known_pips ? true : var.publicly_available ? true : false
   allow_known_pips              = split("-", local.name_prefix)[0] == "d" ? true : false
 
@@ -115,16 +119,16 @@ resource "azurerm_mssql_database" "db" {
   # License type not allowed for serverless databases
   name                        = each.key
   server_id                   = azurerm_mssql_server.sqlsrv.id
-  elastic_pool_id             = local.elastic_pool_enabled == true ? module.elastic_pool[0].resource_id : null
-  sku_name                    = each.value.sku_name != null ? each.value.sku_name : local.elastic_pool_enabled == true ? "ElasticPool" : "GP_S_Gen5_1"
-  min_capacity                = local.elastic_pool_enabled == true || !startswith(coalesce(each.value.sku_name, "GP_S_Gen5_1"), "GP_S") ? null : try(each.value.min_capacity, 0.5)
-  auto_pause_delay_in_minutes = local.elastic_pool_enabled == true || !startswith(coalesce(each.value.sku_name, "GP_S_Gen5_1"), "GP_S") ? null : try(each.value.auto_pause_delay_in_minutes, 60)
+  elastic_pool_id             = local.db_uses_elastic_pool[each.key] == true ? module.elastic_pool[0].resource_id : null
+  sku_name                    = each.value.sku_name != null ? each.value.sku_name : local.db_uses_elastic_pool[each.key] == true ? "ElasticPool" : "GP_S_Gen5_1"
+  min_capacity                = local.db_uses_elastic_pool[each.key] == true || !startswith(coalesce(each.value.sku_name, "GP_S_Gen5_1"), "GP_S") ? null : try(each.value.min_capacity, 0.5)
+  auto_pause_delay_in_minutes = local.db_uses_elastic_pool[each.key] == true || !startswith(coalesce(each.value.sku_name, "GP_S_Gen5_1"), "GP_S") ? null : try(each.value.auto_pause_delay_in_minutes, 60)
   storage_account_type        = each.value.storage_account_type != null ? each.value.storage_account_type : startswith(local.name_prefix, "p-") ? "Geo" : "Local"
 
   #   public_network_access_enabled = local.allow_known_pips ? true : var.publicly_available ? true : false
-  license_type                = local.elastic_pool_enabled == true ? null : each.value.capacity_unit == "Provisioned" && each.value.license_type != null ? each.value.license_type : null
+  license_type                = local.db_uses_elastic_pool[each.key] == true ? null : each.value.capacity_unit == "Provisioned" && each.value.license_type != null ? each.value.license_type : null
   collation                   = each.value.collation != null ? each.value.collation : "Danish_Norwegian_CI_AS"
-  max_size_gb                 = !startswith(coalesce(each.value.sku_name, local.elastic_pool_enabled == true ? "ElasticPool" : "GP_S_Gen5_1"), "GP_S") ? try(each.value.max_size_gb, 32) : try(each.value.max_size_gb, 50)
+  max_size_gb                 = !startswith(coalesce(each.value.sku_name, local.db_uses_elastic_pool[each.key] == true ? "ElasticPool" : "GP_S_Gen5_1"), "GP_S") ? try(each.value.max_size_gb, 32) : try(each.value.max_size_gb, 50)
   create_mode                 = each.value.create_mode
   creation_source_database_id = each.value.create_mode != "Default" && each.value.creation_source_database_id != null ? each.value.creation_source_database_id : null
   enclave_type                = each.value.create_mode == "Copy" ? "Default" : null
@@ -134,7 +138,7 @@ resource "azurerm_mssql_database" "db" {
     # Long term retention policy not allowed for serverless databases with auto-pause enabled.
     # Therefore the "hacky" determination of enabling LTR or not.
     # This logic will enable LTR by default if supported.
-    for_each = local.elastic_pool_enabled == true || each.value.capacity_unit == "Provisioned" || each.value.auto_pause_delay_in_minutes == -1 ? ["true"] : []
+    for_each = local.db_uses_elastic_pool[each.key] == true || each.value.capacity_unit == "Provisioned" || each.value.auto_pause_delay_in_minutes == -1 ? ["true"] : []
     content {
       monthly_retention = lookup(long_term_retention_policy, "monthly_retention", "P6M")
       week_of_year      = lookup(long_term_retention_policy, "week_of_year", 1)
@@ -150,13 +154,13 @@ resource "azurerm_mssql_database" "db" {
 
   lifecycle {
     precondition {
-      condition     = local.elastic_pool_enabled == false || each.value.sku_name == null || each.value.sku_name == "ElasticPool"
-      error_message = "When elastic_pool is set, database sku_name must be null or ElasticPool."
+      condition     = local.db_uses_elastic_pool[each.key] == false || each.value.sku_name == null || each.value.sku_name == "ElasticPool"
+      error_message = "When a database is assigned to the elastic pool, sku_name must be null or 'ElasticPool'. Set use_elastic_pool = false on the database to opt out."
     }
 
     precondition {
-      condition     = local.elastic_pool_enabled == false || alltrue([each.value.capacity_unit == null, each.value.min_capacity == null, each.value.auto_pause_delay_in_minutes == null, each.value.license_type == null])
-      error_message = "When elastic_pool is set, database-specific serverless or provisioned compute settings must be omitted and configured through elastic_pool instead."
+      condition     = local.db_uses_elastic_pool[each.key] == false || alltrue([each.value.capacity_unit == null, each.value.min_capacity == null, each.value.auto_pause_delay_in_minutes == null, each.value.license_type == null])
+      error_message = "When a database is assigned to the elastic pool, database-specific serverless or provisioned compute settings must be omitted and configured through elastic_pool instead. Set use_elastic_pool = false on the database to opt out."
     }
   }
 }
