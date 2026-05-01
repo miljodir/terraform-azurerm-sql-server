@@ -1,11 +1,11 @@
 locals {
-  name_prefix                   = data.azurerm_subscription.current.display_name
-  resource_group_name           = var.create_resource_group == true ? azurerm_resource_group.sql[0].name : data.azurerm_resource_group.rg[0].name
-  unique                        = var.unique == null ? random_string.unique[0].result : var.unique
-  enable_local_auth             = var.azuread_administrator[0].azuread_authentication_only == true ? false : true
-  server_name                   = var.server_name != null ? var.server_name : "${local.name_prefix}-sql${local.unique}-sqlsvr"
-  elastic_pool_enabled          = var.elastic_pool != null
-  elastic_pool_name             = try(var.elastic_pool.name, null) != null ? var.elastic_pool.name : "${local.server_name}-pool"
+  name_prefix          = data.azurerm_subscription.current.display_name
+  resource_group_name  = var.create_resource_group == true ? azurerm_resource_group.sql[0].name : data.azurerm_resource_group.rg[0].name
+  unique               = var.unique == null ? random_string.unique[0].result : var.unique
+  enable_local_auth    = var.azuread_administrator[0].azuread_authentication_only == true ? false : true
+  server_name          = var.server_name != null ? var.server_name : "${local.name_prefix}-sql${local.unique}-sqlsvr"
+  elastic_pool_enabled = var.elastic_pool != null
+  elastic_pool_name    = try(var.elastic_pool.name, null) != null ? var.elastic_pool.name : "${local.server_name}-pool"
   elastic_pool_per_database_settings = try(var.elastic_pool.per_database_settings, {
     min_capacity = 0
     max_capacity = 2
@@ -131,7 +131,7 @@ resource "azurerm_mssql_database" "db" {
   max_size_gb                 = !startswith(coalesce(each.value.sku_name, local.db_uses_elastic_pool[each.key] == true ? "ElasticPool" : "GP_S_Gen5_1"), "GP_S") ? try(each.value.max_size_gb, 32) : try(each.value.max_size_gb, 50)
   create_mode                 = each.value.create_mode
   creation_source_database_id = each.value.create_mode != "Default" && each.value.creation_source_database_id != null ? each.value.creation_source_database_id : null
-  enclave_type                = each.value.create_mode == "Copy" ? "Default" : null
+  enclave_type                = null
 
   restore_point_in_time = each.value.create_mode == "PointInTimeRestore" && each.value.restore_point_in_time != null ? each.value.restore_point_in_time : null
   dynamic "long_term_retention_policy" {
@@ -153,6 +153,11 @@ resource "azurerm_mssql_database" "db" {
   }
 
   lifecycle {
+
+    # Issues with changes from azurerm provider 3.x to 4.x. Best left untouched by Terraform
+    ignore_changes = [
+      enclave_type
+    ]
     precondition {
       condition     = local.db_uses_elastic_pool[each.key] == false || each.value.sku_name == null || each.value.sku_name == "ElasticPool"
       error_message = "When a database is assigned to the elastic pool, sku_name must be null or 'ElasticPool'. Set use_elastic_pool = false on the database to opt out."
