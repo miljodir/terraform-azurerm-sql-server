@@ -17,3 +17,14 @@ output "private_ip" {
   description = "The database private IP if created."
   value       = var.create_private_endpoint == true ? azurerm_private_endpoint.sqlsrv_pe[0].private_service_connection[0].private_ip_address : ""
 }
+
+locals {
+  possible_group_name = "aks rbac ns ${split("-", local.name_prefix)[0]}-aks-${split("-", local.name_prefix)[1]} workload identities"
+}
+
+output "access_script" {
+  description = "The script to grant your application access the database. This is currently done manually by a member of the ${try(var.azuread_administrator[0].login_username, "MDIR SQL Admins PIM")} Entra group. The group name not necessarily correct for your situation"
+  value       = <<-EOT
+    CREATE USER [${local.possible_group_name}] FROM EXTERNAL PROVIDER; ALTER ROLE db_owner ADD MEMBER [${local.possible_group_name}];
+  EOT
+}
