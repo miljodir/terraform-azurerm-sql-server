@@ -23,7 +23,7 @@ locals {
 }
 
 output "access_script" {
-  description = "The script to grant your application access the database. This is currently done manually by a member of the ${var.azuread_administrator[0].login_username} Entra group. The group name not necessarily correct for your situation"
+  description = "The script to grant your application access the database. This is currently done manually by a member of the ${azurerm_mssql_server.sqlsrv.azuread_administrator[1].login_username} Entra group. The group name not necessarily correct for your situation"
   value       = <<-EOT
     CREATE USER [${local.possible_group_name}] FROM EXTERNAL PROVIDER; ALTER ROLE db_owner ADD MEMBER [${local.possible_group_name}];
   EOT
