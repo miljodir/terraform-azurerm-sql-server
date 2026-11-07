@@ -1,0 +1,117 @@
+# Terraform module CI: formatting, validation and `terraform test`.
+#
+# Tests live in `tests/*.tftest.hcl` and use mocked providers, so no cloud
+# credentials are required and no real infrastructure is created.
+# See TESTING.md for how to write and run tests locally.
+#
+# This file is kept identical across the terraform-azurerm-* module repositories.
+# The canonical copy lives in the terraform-azurerm-template repository.
+name: Terraform test
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "**.tf"
+      - "**.tftest.hcl"
+      - "tests/**"
+      - "scripts/**"
+      - ".github/workflows/terraform-test.yaml"
+  push:
+    branches: [main]
+    paths:
+      - "**.tf"
+      - "**.tftest.hcl"
+      - "tests/**"
+      - "scripts/**"
+      - ".github/workflows/terraform-test.yaml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: terraform-test-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  TF_IN_AUTOMATION: "true"
+  TF_INPUT: "false"
+
+jobs:
+  fmt:
+    name: Format
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: "1.x"
+          terraform_wrapper: false
+      - name: terraform fmt
+        run: terraform fmt -check -recursive -diff
+
+  test:
+    name: Validate and test (Terraform ${{ matrix.terraform }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        # Latest 1.x release. Add older versions here if a module must keep
+        # supporting them; `terraform test` with mocks requires >= 1.7.
+        terraform: ["1.x"]
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: ${{ matrix.terraform }}
+          terraform_wrapper: false
+
+      # Some modules reference internal modules over SSH (git@github.com:...),
+      # directly or through registry modules. terraform init downloads every
+      # module source, even with count = 0, so the key is loaded when available.
+      - name: Load SSH key for internal module sources
+        env:
+          PRIVATE_KEY: ${{ secrets.ACCESS_SHARED_CONFIGURATION }}
+        run: |
+          if [ -z "$PRIVATE_KEY" ]; then
+            if grep -rqs --include='*.tf' 'git@github.com:' .; then
+              echo "::error::This module uses SSH module sources but the ACCESS_SHARED_CONFIGURATION secret is unavailable (for example on pull requests from forks)."
+              exit 1
+            fi
+            echo "No SSH key available; skipping."
+            exit 0
+          fi
+          mkdir -p "$HOME/.ssh"
+          chmod 700 "$HOME/.ssh"
+          ssh-keyscan -t ed25519,rsa github.com >> "$HOME/.ssh/known_hosts" 2>/dev/null
+          eval "$(ssh-agent -s)"
+          echo "$PRIVATE_KEY" | tr -d '\r' | ssh-add - >/dev/null
+          echo "SSH_AUTH_SOCK=$SSH_AUTH_SOCK" >> "$GITHUB_ENV"
+          echo "SSH_AGENT_PID=$SSH_AGENT_PID" >> "$GITHUB_ENV"
+
+      - name: terraform init
+        run: terraform init -backend=false
+
+      - name: terraform validate
+        run: terraform validate
+
+      # Test-only *_override.tf files (e.g. marking outputs sensitive, which is
+      # required when the module is the root module under test) are copied in
+      # after validate so they never affect the module as consumed.
+      - name: Apply test-only overrides
+        run: |
+          if ls tests/overrides/*_override.tf >/dev/null 2>&1; then
+            cp -v tests/overrides/*_override.tf .
+          fi
+
+      - name: terraform test
+        run: |
+          if ls tests/*.tftest.hcl *.tftest.hcl >/dev/null 2>&1; then
+            terraform test -verbose
+          else
+            echo "::warning::No *.tftest.hcl files found; add tests under tests/."
+          fi

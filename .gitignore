@@ -32,3 +32,9 @@ override.tf.json
 # Ignore CLI configuration files
 .terraformrc
 terraform.rc
+
+# Test-only override files (see TESTING.md)
+!tests/overrides/*_override.tf
+
+# Provider lock files are not committed for reusable modules
+.terraform.lock.hcl
