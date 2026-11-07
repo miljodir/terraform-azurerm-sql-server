@@ -144,12 +144,12 @@ variable "elastic_pool" {
 variable "databases" {
   type = map(object({
     sku_name                    = optional(string),           # Sku name for database. Many possibilities .Defaults to "GP_S_Gen5_1" which means serverless 1 vcore.
-    min_capacity                = optional(number),           # Minimum capacity for serverless type capacity. Defaults to 0.5.
-    auto_pause_delay_in_minutes = optional(number),           # Time in minutes after which database is automatically paused. A value of -1 means that automatic pause is disabled. Defaults to 60.
+    min_capacity                = optional(number),           # Minimum capacity for standalone GP_S serverless databases. Omitted/null defaults to 0.5; explicit zero is preserved.
+    auto_pause_delay_in_minutes = optional(number),           # Auto-pause delay for standalone GP_S serverless databases. Omitted/null defaults to 60 minutes; -1 disables auto-pause.
     storage_account_type        = optional(string),           # Storage account type for database backup. Possible values are Geo, GeoZone, Local and Zone. Defaults to Local.
     license_type                = optional(string),           # License type for hybrid benefit. LicenseIncluded (regular) or BasePrice(Hybrid benefit). Defaults to LicenseIncluded.
     collation                   = optional(string),           # Collation for database. Defaults to "Danish_Norwegian_CI_AS".
-    max_size_gb                 = optional(number),           # Number of gigabytes database size. Defaults to 50.
+    max_size_gb                 = optional(number),           # Database size in GB. Omitted/null defaults to 50 for GP_S SKUs and 32 otherwise, including pooled databases.
     capacity_unit               = optional(string),           # The capacity unit for database. Either Serverless or Provisioned. Only applicable if using vCore server type. Defaults to Serverless.
     creation_source_database_id = optional(string),           # The resource ID of the source database if create_mode is not Default. Defaults to null.
     create_mode                 = optional(string, "Default") # The creation mode of the database. Defaults to Default.
@@ -161,8 +161,8 @@ variable "databases" {
       yearly_retention  = optional(string) # See own comment below
     }))
     short_term_retention_policy = optional(object({
-      backup_interval_in_hours = optional(number) # See own comment below
-      retention_days           = optional(number) # See own comment below
+      backup_interval_in_hours = optional(number, 12) # See own comment below
+      retention_days           = optional(number, 7)  # See own comment below
     }))
     use_elastic_pool = optional(bool) # Whether this database should be placed in the elastic pool. Defaults to true when an elastic pool is configured on the module. Set to false to opt out and use a standalone SKU instead.
     })
@@ -198,5 +198,5 @@ variable "express_vulnerability_assessment_enabled" {
 # week_of_year - (Required) The week of year to take the yearly backup. Value has to be between 1 and 52.
 
 # A short_term_retention_policy block supports the following:
-# retention_days - (Required) Point In Time Restore configuration. Value has to be between 7 and 35.
-# backup_interval_in_hours - (Optional) The hours between each differential backup. This is only applicable to live databases but not dropped databases. Value has to be 12 or 24. Defaults to 12 hours.
+# retention_days - (Optional in this module, required by the provider) Point In Time Restore configuration. Value has to be between 7 and 35. Omitted/null defaults to 7 days.
+# backup_interval_in_hours - (Optional) The hours between each differential backup. This is only applicable to live databases but not dropped databases. Value has to be 12 or 24. Omitted/null defaults to 12 hours.
