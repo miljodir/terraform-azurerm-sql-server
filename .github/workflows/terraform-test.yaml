@@ -110,8 +110,10 @@ jobs:
 
       - name: terraform test
         run: |
-          if ls tests/*.tftest.hcl *.tftest.hcl >/dev/null 2>&1; then
-            terraform test -verbose
-          else
-            echo "::warning::No *.tftest.hcl files found; add tests under tests/."
+          shopt -s nullglob
+          test_files=(tests/*.tftest.hcl *.tftest.hcl)
+          if [ "${#test_files[@]}" -eq 0 ]; then
+            echo "::error::No *.tftest.hcl files found; add tests under tests/."
+            exit 1
           fi
+          terraform test -verbose
