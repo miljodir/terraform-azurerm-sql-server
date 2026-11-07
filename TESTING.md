@@ -192,8 +192,8 @@ else
   rm -f -- "$log"
   exit 1
 fi
-if ! grep -Eq '^Success! 12 passed, 0 failed\.$' "$log"; then
-  echo "Expected all 12 runs in the selected file; check the filter path." >&2
+if ! grep -Eq '^Success! [1-9][0-9]* passed, 0 failed\.$' "$log"; then
+  echo "Expected passing runs and zero failures; check the filter path." >&2
   rm -f -- "$log"
   exit 1
 fi
@@ -204,8 +204,9 @@ Native Windows executables use backslashes for the filter, including when invoke
 from Git Bash; Linux/macOS use forward slashes. WSL with Linux executables also
 uses forward slashes. A wrong filter can return exit code zero and `0 passed`:
 **zero passed is not a successful test**, because no behavior was checked.
-This file contains all 12 module runs, so its filtered result must be
-`12 passed, 0 failed`. CI runs the full suite and fails on absent tests, zero
+This file currently contains all 12 module runs; the passing count grows as tests
+are added. The guard accepts any positive passing count with zero failures.
+CI runs the full suite and fails on absent tests, zero
 executed runs, or any failure.
 
 ### Applying the fixture mechanism to other modules
