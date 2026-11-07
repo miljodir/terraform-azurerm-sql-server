@@ -28,7 +28,7 @@ jobs:
     with:
       engine: both
       terraform-version: "1.16.6"
-      opentofu-version: "1.13.9"
+      opentofu-version: "1.x"
       test-directory: tests
       prepare-script: scripts/prepare-tests.sh
       test-override-directory: tests/overrides

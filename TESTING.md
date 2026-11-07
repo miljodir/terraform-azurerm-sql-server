@@ -13,8 +13,10 @@ base-branch filters, path filters or repository secrets.
 | Validate | `terraform/tofu init -backend=false` + `validate` | Prepared configuration syntax/types    |
 | Test     | `terraform/tofu test -no-color`        | Module behaviour (defaults, wiring, validation) |
 
-The caller pins Terraform 1.16.6 and OpenTofu 1.13.9 and runs both independently
-in fresh disposable copies. Tests run only in GitHub Actions for CI verification.
+The caller pins Terraform 1.16.6 and selects the latest stable OpenTofu 1.x release
+with `opentofu-version: "1.x"`, running both independently in fresh disposable
+copies. OpenTofu 1.13.9 is a verified release, not a fixed CI pin. Each CI run
+prints its resolved engine version. Tests run in GitHub Actions for CI verification.
 The shared runner fails on absent tests, empty or entirely skipped suites, and
 native test failures (including failures through its output pipeline).
 
@@ -127,8 +129,9 @@ Guidelines:
 Requires Bash (for example Git Bash on Windows), internet access for public
 downloads, and Terraform >= 1.9 and < 2.0. OpenTofu's test command supports the
 same `.tftest.hcl` files, mocks and module overrides.
-CI targets Terraform 1.16.6 and OpenTofu 1.13.9;
-support for other versions is not established by these checks.
+CI uses Terraform 1.16.6 and a floating latest stable OpenTofu 1.x selection.
+OpenTofu 1.13.9 has been verified; each CI run establishes compatibility with its
+resolved release, not every historical or future 1.x version.
 
 Mock/override values must target computed fields, not configured inputs.
 For example, the existing resource group's `name` comes from
