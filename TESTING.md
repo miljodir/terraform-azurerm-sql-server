@@ -59,6 +59,8 @@ that source to `tests/fixtures/network_vars`, a local interface-only module with
 an empty `known_public_ips` map. The existing test override still supplies
 documentation-range IP addresses; the development firewall assertions are retained.
 No private module code or real network data is included.
+Preparation fails if the expected module target or source/ref changes, so a future
+dependency change requires an explicit fixture review rather than being hidden.
 
 **Validation with this override checks the fixture's interface, not the real
 private dependency or compatibility with its implementation.** The public Azure
