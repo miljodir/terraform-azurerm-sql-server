@@ -23,6 +23,21 @@ native test failures (including failures through its output pipeline).
 The shared workflow uses the released `terraform-test/v0` tag in
 `miljodir/workflow-templates`.
 
+### Test files and release detection
+
+The release caller in `.github/workflows/tag-module.yaml` excludes all currently
+tracked test-only Terraform paths through `exclude-files`: the native test file,
+network fixture, sensitive-output override and private-source override. Otherwise
+a production change combined with a fixture change could incorrectly propose
+a separate release for a test directory.
+
+Exclusions match **exact repository-relative paths**, not globs or directories.
+When adding or renaming test-only `.tf` or `.tftest.hcl` files, update this JSON
+array with each new path (using forward slashes). Keep real production module
+paths out of the array so their releases remain enabled. This only filters release
+directory detection; it does not skip tests or disable the root patch release.
+The same input is used on pull-request and merged `pull_request_target` events.
+
 ## How the tests work
 
 - Test files live in `tests/` and end in `.tftest.hcl`.
@@ -165,7 +180,7 @@ terraform fmt -check -recursive -diff
 
 For OpenTofu 1.13.9, replace each `terraform` command with `tofu` and move
 `cp tests/overrides/*_override.tf .` before `tofu validate`.
-This suite has **12 run blocks** and should report `12 passed, 0 failed`.
+This suite has **16 run blocks** and should report `16 passed, 0 failed`.
 Every provider is mocked, including apply-mode runs; no Azure credentials or SSH
 key are required. Use only synthetic values in the isolated workspace.
 
@@ -207,10 +222,27 @@ Native Windows executables use backslashes for the filter, including when invoke
 from Git Bash; Linux/macOS use forward slashes. WSL with Linux executables also
 uses forward slashes. A wrong filter can return exit code zero and `0 passed`:
 **zero passed is not a successful test**, because no behavior was checked.
-This file currently contains all 12 module runs; the passing count grows as tests
+This file currently contains all 16 module runs; the passing count grows as tests
 are added. The guard accepts any positive passing count with zero failures.
 CI runs the full suite and fails on absent tests, zero
 executed runs, or any failure.
+
+### Optional database defaults regression
+
+The four additional runs cover omitted/null serverless, provisioned, DTU and
+pooled settings; pool opt-outs; explicit sizes, zero minimum capacity and disabled
+auto-pause; and empty/partial short-term retention objects with explicit values.
+The provider normalizes omitted non-serverless compute settings to zero in the
+planned resource; those assertions check that normalization, not that the module
+supplies serverless defaults outside their applicable SKU.
+
+Against `main` revision `f65d968` with the new tests but unchanged production
+configuration, both Terraform 1.16.6 and OpenTofu 1.13.9 reported
+`13 passed, 3 failed`. The failures were the standalone defaults, pooled/opt-out
+defaults and required retention fields left null. The explicit-values regression
+passed before the fix. With null-aware database fallbacks and nested retention
+defaults, both engines report `16 passed, 0 failed`. All applies use mocks;
+this is not Azure integration validation.
 
 ### Applying the fixture mechanism to other modules
 
