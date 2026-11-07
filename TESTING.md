@@ -175,8 +175,38 @@ file first; preserve unrelated user overrides.
 
 Use `terraform test -verbose` (or `tofu test -verbose`) only when deliberately
 debugging synthetic test data; routine public CI should not print plans or state.
-For a single file, use `-filter=tests/sql_server.tftest.hcl`; CI must run the full
-suite and fail on absent tests, zero executed runs, or any failure.
+To run just this test file, replace `terraform test -no-color` in the disposable
+setup above with the following commands (use `engine=tofu` for OpenTofu):
+
+```bash
+engine=terraform
+filter='tests/sql_server.tftest.hcl'
+case "$(uname -s)" in
+  MINGW*|MSYS*|CYGWIN*) filter='tests\sql_server.tftest.hcl' ;;
+esac
+log=$(mktemp)
+if "$engine" test -no-color "-filter=$filter" > "$log" 2>&1; then
+  cat "$log"
+else
+  cat "$log"
+  rm -f -- "$log"
+  exit 1
+fi
+if ! grep -Eq '^Success! 12 passed, 0 failed\.$' "$log"; then
+  echo "Expected all 12 runs in the selected file; check the filter path." >&2
+  rm -f -- "$log"
+  exit 1
+fi
+rm -f -- "$log"
+```
+
+Native Windows executables use backslashes for the filter, including when invoked
+from Git Bash; Linux/macOS use forward slashes. WSL with Linux executables also
+uses forward slashes. A wrong filter can return exit code zero and `0 passed`:
+**zero passed is not a successful test**, because no behavior was checked.
+This file contains all 12 module runs, so its filtered result must be
+`12 passed, 0 failed`. CI runs the full suite and fails on absent tests, zero
+executed runs, or any failure.
 
 ### Applying the fixture mechanism to other modules
 
