@@ -17,9 +17,8 @@ in fresh disposable copies. Tests run only in GitHub Actions for CI verification
 The shared runner fails on absent tests, empty or entirely skipped suites, and
 native test failures (including failures through its output pipeline).
 
-The shared workflow is temporarily pinned to integration commit
-`70a3d807d7a6d1969f8216c8c9e3a5108e892ddb` in `miljodir/workflow-templates`.
-**Before landing, replace this with a durable merged commit or release ref.**
+The shared workflow uses the released `terraform-test/v0` tag in
+`miljodir/workflow-templates`.
 
 ## How the tests work
 
