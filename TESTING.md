@@ -23,6 +23,21 @@ native test failures (including failures through its output pipeline).
 The shared workflow uses the released `terraform-test/v0` tag in
 `miljodir/workflow-templates`.
 
+### Test files and release detection
+
+The release caller in `.github/workflows/tag-module.yaml` excludes all currently
+tracked test-only Terraform paths through `exclude-files`: the native test file,
+network fixture, sensitive-output override and private-source override. Otherwise
+a production change combined with a fixture change could incorrectly propose
+a separate release for a test directory.
+
+Exclusions match **exact repository-relative paths**, not globs or directories.
+When adding or renaming test-only `.tf` or `.tftest.hcl` files, update this JSON
+array with each new path (using forward slashes). Keep real production module
+paths out of the array so their releases remain enabled. This only filters release
+directory detection; it does not skip tests or disable the root patch release.
+The same input is used on pull-request and merged `pull_request_target` events.
+
 ## How the tests work
 
 - Test files live in `tests/` and end in `.tftest.hcl`.
