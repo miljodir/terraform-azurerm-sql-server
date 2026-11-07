@@ -1,8 +1,9 @@
 # Testing
 
 This module uses native Terraform and OpenTofu tests. The shared workflow runs
-on every pull request to `main`, including forks and documentation-only changes,
-on pushes to `main`, and manually. There are no path filters or repository secrets.
+on every pull request regardless of target branch, including forks and
+documentation-only changes, on pushes to `main`, and manually. There are no PR
+base-branch filters, path filters or repository secrets.
 
 ## What runs in CI
 
