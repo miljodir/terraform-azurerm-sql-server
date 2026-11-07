@@ -1,16 +1,25 @@
 # Testing
 
-This module is tested with the native [`terraform test`](https://developer.hashicorp.com/terraform/language/tests)
-framework. Tests run automatically in GitHub Actions on every pull request to
-`main` (see `.github/workflows/terraform-test.yaml`).
+This module uses native Terraform and OpenTofu tests. The shared workflow runs
+on every pull request to `main`, including forks and documentation-only changes,
+on pushes to `main`, and manually. There are no path filters or repository secrets.
 
 ## What runs in CI
 
 | Job      | Command                              | Purpose                                         |
 | -------- | ------------------------------------ | ----------------------------------------------- |
-| Format   | `terraform fmt -check -recursive`    | Consistent formatting                           |
-| Validate | `terraform init` + `terraform validate` | Syntax, types and references are valid      |
-| Test     | `terraform test`                     | Module behaviour (defaults, wiring, validation) |
+| Format   | `terraform/tofu fmt -check -recursive` | Consistent formatting                          |
+| Validate | `terraform/tofu init -backend=false` + `validate` | Prepared configuration syntax/types    |
+| Test     | `terraform/tofu test -no-color`        | Module behaviour (defaults, wiring, validation) |
+
+The caller pins Terraform 1.16.6 and OpenTofu 1.13.9 and runs both independently
+in fresh disposable copies. Tests run only in GitHub Actions for CI verification.
+The shared runner fails on absent tests, empty or entirely skipped suites, and
+native test failures (including failures through its output pipeline).
+
+The shared workflow is temporarily pinned to integration commit
+`94ad8ac2d2a0a5a9161a60f40a60dba541954289` in `miljodir/workflow-templates`.
+**Before landing, replace this with a durable merged commit or release ref.**
 
 ## How the tests work
 
@@ -27,7 +36,7 @@ framework. Tests run automatically in GitHub Actions on every pull request to
 - Data sources and nested modules that would need real lookups can be replaced
   with `override_data` / `override_module`.
 
-- When tests run, the module is the *root* module. Terraform then rejects
+- When tests run, the module is the *root* module. The engines then reject
   outputs that contain sensitive attributes unless they are marked
   `sensitive = true` (consumers calling the module are not affected). Put
   test-only override files in `tests/overrides/` named `*_override.tf`, e.g.
@@ -38,7 +47,34 @@ framework. Tests run automatically in GitHub Actions on every pull request to
   }
   ```
 
-  CI copies them into the module root right before `terraform test`.
+  Terraform installs sensitive-output overrides after validation and before tests.
+  OpenTofu requires them before root-module validation as well. Always install
+  them in the isolated copy, never in the production module root.
+
+### Private dependency fixture
+
+Mocking `module.network_vars` does not prevent its source from being downloaded
+during initialization. `tests/source-overrides/network_vars_source_override.tf` redirects
+that source to `tests/fixtures/network_vars`, a local interface-only module with
+an empty `known_public_ips` map. The existing test override still supplies
+documentation-range IP addresses; the development firewall assertions are retained.
+No private module code or real network data is included.
+
+**Validation with this override checks the fixture's interface, not the real
+private dependency or compatibility with its implementation.** The public Azure
+elastic-pool module is still downloaded and validated, although its outputs are
+mocked during tests. Provider and public module downloads need internet access.
+
+Both the source override and sensitive server-output override are test-only.
+Normal consumers do not activate them, and production module behavior is unchanged.
+Never plan or apply the isolated test configuration with real providers.
+
+The shared workflow's `prepare-script: scripts/prepare-tests.sh` installs the
+source override before initialization. Its
+`test-override-directory: tests/overrides` installs the sensitive-output override
+after Terraform validation but before OpenTofu validation. OpenTofu validation
+therefore checks overridden output metadata, not the original root output metadata.
+Both hooks run in the workflow's disposable copy.
 
 These are unit-style tests: they verify how the module turns inputs into
 resource configuration. They do not prove that Azure accepts the configuration;
@@ -83,16 +119,63 @@ Guidelines:
 
 ## Running locally
 
-Requires Terraform >= 1.7.
+Requires Bash (for example Git Bash on Windows), internet access for public
+downloads, and Terraform >= 1.9 and < 2.0. OpenTofu's test command supports the
+same `.tftest.hcl` files, mocks and module overrides. Its documentation introduces
+indexed data overrides, used by this suite, in 1.12; do not assume older versions
+can execute all these tests. CI targets Terraform 1.16.6 and OpenTofu 1.13.9;
+support for other versions is not established by these checks.
 
-```sh
-terraform init -backend=false
-terraform test            # all tests
-terraform test -verbose   # include plan output
-terraform test -filter=tests/defaults.tftest.hcl
+Start from a clean checkout with no root-level overrides. In Bash, from the
+repository root, run:
+
+```bash
+terraform fmt -check -recursive -diff
+(
+  set -euo pipefail
+  # mkdir refuses to overwrite a previous test directory.
+  mkdir .terraform-test
+  trap 'rm -rf -- .terraform-test' EXIT
+  # Copy configuration and synthetic tests, not tfvars, state or provider caches.
+  cp ./*.tf .terraform-test/
+  cp -R tests .terraform-test/tests
+  cp -R scripts .terraform-test/scripts
+  (
+    cd .terraform-test
+    bash scripts/prepare-tests.sh
+    terraform init -backend=false
+    terraform validate
+    cp tests/overrides/*_override.tf .
+    terraform test -no-color
+  )
+)
 ```
 
-Remove the copied `*_override.tf` files afterwards (they are git-ignored).
+For OpenTofu 1.13.9, replace each `terraform` command with `tofu` and move
+`cp tests/overrides/*_override.tf .` before `tofu validate`.
+This suite has **12 run blocks** and should report `12 passed, 0 failed`.
+Every provider is mocked, including apply-mode runs; no Azure credentials or SSH
+key are required. Use only synthetic values in the isolated workspace.
 
-If the module references internal modules over SSH, you need SSH access to
-GitHub for `terraform init` to download them.
+The exit trap removes the installed source and sensitive-output overrides along
+with downloaded dependencies and any mock state, including after test failures.
+If a session is terminated before the trap runs, remove only `.terraform-test/`
+before repeating the setup. If you followed the previous instructions and copied
+`server_output_override.tf` into the production root, remove that specific copied
+file first; preserve unrelated user overrides.
+
+Use `terraform test -verbose` (or `tofu test -verbose`) only when deliberately
+debugging synthetic test data; routine public CI should not print plans or state.
+For a single file, use `-filter=tests/sql_server.tftest.hcl`; CI must run the full
+suite and fail on absent tests, zero executed runs, or any failure.
+
+### Applying the fixture mechanism to other modules
+
+Use repository-specific `tests/source-overrides/*_override.tf` files to redirect private
+module sources to minimal public-safe `tests/fixtures/` input/output interfaces.
+Activate source overrides through `prepare-script` before `init` in an isolated
+checkout, and install sensitive-output overrides via `test-override-directory`
+(after Terraform validation, before OpenTofu validation).
+Keep behavioral `override_module` assertions and document
+which real dependency interfaces validation cannot verify. Do not change production
+sources, copy private code, or introduce secrets into a public pull-request workflow.
