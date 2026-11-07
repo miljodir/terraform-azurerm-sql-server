@@ -223,13 +223,6 @@ run "existing_resource_group_and_names" {
     server_name           = "sql-custom-name"
   }
 
-  override_data {
-    target = data.azurerm_resource_group.rg[0]
-    values = {
-      name = "rg-existing"
-    }
-  }
-
   assert {
     condition     = length(azurerm_resource_group.sql) == 0
     error_message = "No resource group should be created when create_resource_group = false."

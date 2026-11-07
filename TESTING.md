@@ -121,10 +121,14 @@ Guidelines:
 
 Requires Bash (for example Git Bash on Windows), internet access for public
 downloads, and Terraform >= 1.9 and < 2.0. OpenTofu's test command supports the
-same `.tftest.hcl` files, mocks and module overrides. Its documentation introduces
-indexed data overrides, used by this suite, in 1.12; do not assume older versions
-can execute all these tests. CI targets Terraform 1.16.6 and OpenTofu 1.13.9;
+same `.tftest.hcl` files, mocks and module overrides.
+CI targets Terraform 1.16.6 and OpenTofu 1.13.9;
 support for other versions is not established by these checks.
+
+Mock/override values must target computed fields, not configured inputs.
+For example, the existing resource group's `name` comes from
+`resource_group_name`; it must not be redundantly overridden. OpenTofu rejects
+that override, while the input and assertion already test the intended wiring.
 
 Start from a clean checkout with no root-level overrides. In Bash, from the
 repository root, run:
