@@ -91,7 +91,7 @@ resource "azurerm_mssql_server" "sqlsrv" {
   }
 
   lifecycle {
-    ignore_changes = [ administrator_login_password ] # `administrator_login_password` cannot be changed once `azuread_administrator.0.azuread_authentication_only = true`
+    ignore_changes = [administrator_login_password] # `administrator_login_password` cannot be changed once `azuread_administrator.0.azuread_authentication_only = true`
   }
 }
 

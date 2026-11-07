@@ -1,0 +1,34 @@
+name: Terraform and OpenTofu tests
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: terraform-test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  fixture-guard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - run: bash scripts/test-prepare-tests.sh
+
+  test:
+    uses: miljodir/workflow-templates/.github/workflows/terraform-test.yaml@terraform-test/v0
+    with:
+      engine: both
+      terraform-version: "1.16.6"
+      opentofu-version: "1.x"
+      test-directory: tests
+      prepare-script: scripts/prepare-tests.sh
+      test-override-directory: tests/overrides
