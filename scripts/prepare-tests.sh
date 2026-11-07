@@ -5,7 +5,14 @@ set -euo pipefail
 expected_source='git@github.com:miljodir/cp-shared.git//modules/public_nw_ips?ref=public_nw_ips/v1'
 target_count=$(awk '/^[[:space:]]*module[[:space:]]+"network_vars"[[:space:]]*\{/ { total++ } END { print total + 0 }' ./*.tf)
 source_block=$(sed -n '/^module "network_vars" {$/,/^}$/p' main.tf)
-source_count=$(printf '%s\n' "$source_block" | grep -Fc "source = \"$expected_source\"" || true)
+source_count=$(printf '%s\n' "$source_block" | awk -v expected="source = \"$expected_source\"" '
+  {
+    sub(/^[[:space:]]+/, "")
+    sub(/[[:space:]]+$/, "")
+    if ($0 == expected) total++
+  }
+  END { print total + 0 }
+')
 if [[ "$target_count" != 1 || "$source_count" != 1 ]]; then
   echo "The network_vars target or source/ref changed; review the test fixture before substituting it." >&2
   exit 1

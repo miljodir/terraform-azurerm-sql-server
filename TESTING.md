@@ -61,6 +61,9 @@ documentation-range IP addresses; the development firewall assertions are retain
 No private module code or real network data is included.
 Preparation fails if the expected module target or source/ref changes, so a future
 dependency change requires an explicit fixture review rather than being hidden.
+Only an exact, uncommented source assignment satisfies the source guard.
+`bash scripts/test-prepare-tests.sh` runs in CI and locally to check the accepted
+assignment and reject a changed live source even when the old source is commented.
 
 **Validation with this override checks the fixture's interface, not the real
 private dependency or compatibility with its implementation.** The public Azure
