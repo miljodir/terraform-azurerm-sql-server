@@ -18,7 +18,7 @@ The shared runner fails on absent tests, empty or entirely skipped suites, and
 native test failures (including failures through its output pipeline).
 
 The shared workflow is temporarily pinned to integration commit
-`94ad8ac2d2a0a5a9161a60f40a60dba541954289` in `miljodir/workflow-templates`.
+`70a3d807d7a6d1969f8216c8c9e3a5108e892ddb` in `miljodir/workflow-templates`.
 **Before landing, replace this with a durable merged commit or release ref.**
 
 ## How the tests work

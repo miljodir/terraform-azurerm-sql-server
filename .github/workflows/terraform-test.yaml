@@ -26,7 +26,7 @@ jobs:
 
   test:
     # Temporary integration pin: replace with a durable merged revision before landing.
-    uses: miljodir/workflow-templates/.github/workflows/terraform-test.yaml@94ad8ac2d2a0a5a9161a60f40a60dba541954289
+    uses: miljodir/workflow-templates/.github/workflows/terraform-test.yaml@70a3d807d7a6d1969f8216c8c9e3a5108e892ddb
     with:
       engine: both
       terraform-version: "1.16.6"
