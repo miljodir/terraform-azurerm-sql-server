@@ -23,6 +23,29 @@ native test failures (including failures through its output pipeline).
 The shared workflow uses the released `terraform-test/v0` tag in
 `miljodir/workflow-templates`.
 
+## Release workflow events
+
+Release metadata uses `pull_request` events targeting `main` and matching
+`**.tf`. Same-repository opened, synchronized, reopened, labeled and unlabeled
+PRs retain release-plan previews. A merged `closed` event uses the released
+`generate-release-metadata/v1` workflow to dispatch a release and wiki update;
+an unmerged close skips metadata entirely. There is only one merge-event path.
+The existing `repository_dispatch` handlers for `create_release` and `update_wiki`
+remain unchanged.
+
+Metadata is skipped for public-fork PRs, including merged closes: their
+`GITHUB_TOKEN` is restricted to read-only access and cannot publish release-plan
+comments or reliably dispatch releases. Module tests still run for fork PRs.
+Releases for fork contributions require a separately reviewed, trusted release
+process; this workflow does not provide one or elevate fork permissions.
+
+Workflow-only changes do not match the Terraform path filter and do not release
+the module. The `no-release` label also suppresses release planning and dispatch
+for matching PRs. Test-only Terraform paths are excluded from release detection
+through the caller's exact-path `exclude-files` array, for both preview and merged
+events. When adding or renaming test files, update that array so fixtures and
+overrides cannot become release modules.
+
 ## How the tests work
 
 - Test files live in `tests/` and end in `.tftest.hcl`.
