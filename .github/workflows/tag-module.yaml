@@ -15,10 +15,8 @@ permissions:
 
 jobs:
   pr:
-    # Fork tokens cannot write preview comments or dispatch releases.
     if: >-
       github.event_name == 'pull_request'
-      && github.event.pull_request.head.repo.full_name == github.repository
       && (github.event.action != 'closed' || github.event.pull_request.merged == true)
     uses: miljodir/workflow-templates/.github/workflows/generate-release-metadata.yaml@generate-release-metadata/v1
     permissions:

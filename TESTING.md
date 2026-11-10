@@ -26,18 +26,19 @@ The shared workflow uses the released `terraform-test/v0` tag in
 ## Release workflow events
 
 Release metadata uses `pull_request` events targeting `main` and matching
-`**.tf`. Same-repository opened, synchronized, reopened, labeled and unlabeled
-PRs retain release-plan previews. A merged `closed` event uses the released
+`**.tf`. Opened, synchronized, reopened, labeled and unlabeled PRs route to
+release-plan previews. A merged `closed` event uses the released
 `generate-release-metadata/v1` workflow to dispatch a release and wiki update;
 an unmerged close skips metadata entirely. There is only one merge-event path.
 The existing `repository_dispatch` handlers for `create_release` and `update_wiki`
 remain unchanged.
 
-Metadata is skipped for public-fork PRs, including merged closes: their
-`GITHUB_TOKEN` is restricted to read-only access and cannot publish release-plan
-comments or reliably dispatch releases. Module tests still run for fork PRs.
-Releases for fork contributions require a separately reviewed, trusted release
-process; this workflow does not provide one or elevate fork permissions.
+Fork PRs follow the same preview and merged-close routing, rather than silently
+skipping metadata or releases. However, public-fork `GITHUB_TOKEN` permissions are
+restricted to read-only access, so preview comments or release dispatch can fail
+visibly. Routing does not guarantee successful fork releases, and post-merge fork
+write permissions have not been verified by a live event. Module tests still run
+for fork PRs. This workflow does not introduce elevated credentials or settings.
 
 Workflow-only changes do not match the Terraform path filter and do not release
 the module. The `no-release` label also suppresses release planning and dispatch
