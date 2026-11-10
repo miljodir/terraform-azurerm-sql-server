@@ -1,13 +1,7 @@
 name: Create git tag
 on:
   pull_request:
-    types: [opened, synchronize, reopened, labeled, unlabeled]
-    branches:
-      - main
-    paths:
-      - "**.tf"
-  pull_request_target:
-    types: [closed]
+    types: [opened, synchronize, reopened, labeled, unlabeled, closed]
     branches:
       - main
     paths:
@@ -16,9 +10,14 @@ on:
   repository_dispatch:
     types: [create_release, update_wiki]
 
+permissions:
+  contents: read
+
 jobs:
   pr:
-    if: github.event_name != 'repository_dispatch'
+    if: >-
+      github.event_name == 'pull_request'
+      && (github.event.action != 'closed' || github.event.pull_request.merged == true)
     uses: miljodir/workflow-templates/.github/workflows/generate-release-metadata.yaml@generate-release-metadata/v1
     permissions:
       contents: write
@@ -28,6 +27,11 @@ jobs:
       type: terraform
       index-split: 0
       wiki-enabled: true
+      exclude-files: >-
+        ["tests/sql_server.tftest.hcl",
+         "tests/fixtures/network_vars/outputs.tf",
+         "tests/overrides/server_output_override.tf",
+         "tests/source-overrides/network_vars_source_override.tf"]
 
   tag:
     if: github.event_name == 'repository_dispatch' && github.event.action == 'create_release'
