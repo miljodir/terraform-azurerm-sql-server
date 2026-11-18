@@ -23,20 +23,38 @@ native test failures (including failures through its output pipeline).
 The shared workflow uses the released `terraform-test/v0` tag in
 `miljodir/workflow-templates`.
 
-### Test files and release detection
+## Release workflow events
 
+Release metadata uses `pull_request` events targeting `main` and matching
+`**.tf`. Opened, synchronized, reopened, labeled and unlabeled PRs route to
+release-plan previews. A merged `closed` event uses the released
+`generate-release-metadata/v1` workflow to dispatch a release and wiki update;
+an unmerged close skips metadata entirely. There is only one merge-event path.
+The existing `repository_dispatch` handlers for `create_release` and `update_wiki`
+remain unchanged.
+
+Fork PRs follow the same preview and merged-close routing, rather than silently
+skipping metadata or releases. However, public-fork `GITHUB_TOKEN` permissions are
+restricted to read-only access, so preview comments or release dispatch can fail
+visibly. Routing does not guarantee successful fork releases, and post-merge fork
+write permissions have not been verified by a live event. Module tests still run
+for fork PRs. This workflow does not introduce elevated credentials or settings.
+
+Workflow-only changes do not match the Terraform path filter and do not release
+the module. The `no-release` label also suppresses release planning and dispatch
+for matching PRs. Test-only Terraform paths are excluded from release detection
+through the caller's `exclude-files` array, for both preview and merged events.
 The release caller in `.github/workflows/tag-module.yaml` excludes all currently
-tracked test-only Terraform paths through `exclude-files`: the native test file,
-network fixture, sensitive-output override and private-source override. Otherwise
-a production change combined with a fixture change could incorrectly propose
-a separate release for a test directory.
+tracked test-only Terraform paths: the native test file, network fixture,
+sensitive-output override and private-source override. Otherwise a production
+change combined with a fixture change could incorrectly propose a separate
+release for a test directory.
 
 Exclusions match **exact repository-relative paths**, not globs or directories.
 When adding or renaming test-only `.tf` or `.tftest.hcl` files, update this JSON
 array with each new path (using forward slashes). Keep real production module
 paths out of the array so their releases remain enabled. This only filters release
 directory detection; it does not skip tests or disable the root patch release.
-The same input is used on pull-request and merged `pull_request_target` events.
 
 ## How the tests work
 
