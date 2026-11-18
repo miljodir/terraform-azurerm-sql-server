@@ -125,14 +125,14 @@ resource "azurerm_mssql_database" "db" {
   server_id                   = azurerm_mssql_server.sqlsrv.id
   elastic_pool_id             = local.db_uses_elastic_pool[each.key] == true ? module.elastic_pool[0].resource_id : null
   sku_name                    = each.value.sku_name != null ? each.value.sku_name : local.db_uses_elastic_pool[each.key] == true ? "ElasticPool" : "GP_S_Gen5_1"
-  min_capacity                = local.db_uses_elastic_pool[each.key] == true || !startswith(coalesce(each.value.sku_name, "GP_S_Gen5_1"), "GP_S") ? null : try(each.value.min_capacity, 0.5)
-  auto_pause_delay_in_minutes = local.db_uses_elastic_pool[each.key] == true || !startswith(coalesce(each.value.sku_name, "GP_S_Gen5_1"), "GP_S") ? null : try(each.value.auto_pause_delay_in_minutes, 60)
+  min_capacity                = local.db_uses_elastic_pool[each.key] == true || !startswith(coalesce(each.value.sku_name, "GP_S_Gen5_1"), "GP_S") ? null : coalesce(each.value.min_capacity, 0.5)
+  auto_pause_delay_in_minutes = local.db_uses_elastic_pool[each.key] == true || !startswith(coalesce(each.value.sku_name, "GP_S_Gen5_1"), "GP_S") ? null : coalesce(each.value.auto_pause_delay_in_minutes, 60)
   storage_account_type        = each.value.storage_account_type != null ? each.value.storage_account_type : startswith(local.name_prefix, "p-") ? "Geo" : "Local"
 
   #   public_network_access_enabled = local.allow_known_pips ? true : var.publicly_available ? true : false
   license_type                = local.db_uses_elastic_pool[each.key] == true ? null : each.value.capacity_unit == "Provisioned" && each.value.license_type != null ? each.value.license_type : null
   collation                   = each.value.collation != null ? each.value.collation : "Danish_Norwegian_CI_AS"
-  max_size_gb                 = !startswith(coalesce(each.value.sku_name, local.db_uses_elastic_pool[each.key] == true ? "ElasticPool" : "GP_S_Gen5_1"), "GP_S") ? try(each.value.max_size_gb, 32) : try(each.value.max_size_gb, 50)
+  max_size_gb                 = coalesce(each.value.max_size_gb, startswith(coalesce(each.value.sku_name, local.db_uses_elastic_pool[each.key] == true ? "ElasticPool" : "GP_S_Gen5_1"), "GP_S") ? 50 : 32)
   create_mode                 = each.value.create_mode
   creation_source_database_id = each.value.create_mode != "Default" && each.value.creation_source_database_id != null ? each.value.creation_source_database_id : null
   enclave_type                = null

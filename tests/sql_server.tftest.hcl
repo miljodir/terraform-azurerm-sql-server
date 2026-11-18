@@ -363,3 +363,196 @@ run "invalid_unique_is_rejected" {
 
   expect_failures = [var.unique]
 }
+
+run "omitted_and_null_database_defaults" {
+  command = apply
+
+  variables {
+    databases = {
+      serverless = {}
+      serverless_null = {
+        sku_name                    = "GP_S_Gen5_1"
+        min_capacity                = null
+        auto_pause_delay_in_minutes = null
+        max_size_gb                 = null
+      }
+      provisioned = { sku_name = "GP_Gen5_2" }
+      provisioned_null = {
+        sku_name                    = "GP_Gen5_2"
+        min_capacity                = null
+        auto_pause_delay_in_minutes = null
+        max_size_gb                 = null
+      }
+      dtu = { sku_name = "S0" }
+      dtu_null = {
+        sku_name                    = "S0"
+        min_capacity                = null
+        auto_pause_delay_in_minutes = null
+        max_size_gb                 = null
+      }
+    }
+  }
+
+  assert {
+    condition = alltrue([
+      for name in ["serverless", "serverless_null"] :
+      azurerm_mssql_database.db[name].min_capacity == 0.5 &&
+      azurerm_mssql_database.db[name].auto_pause_delay_in_minutes == 60 &&
+      azurerm_mssql_database.db[name].max_size_gb == 50
+    ])
+    error_message = "Omitted/null standalone serverless settings must default to 0.5 vCore, 60 minutes and 50 GB."
+  }
+
+  assert {
+    condition = alltrue([
+      for name in ["provisioned", "provisioned_null", "dtu", "dtu_null"] :
+      azurerm_mssql_database.db[name].min_capacity == 0 &&
+      azurerm_mssql_database.db[name].auto_pause_delay_in_minutes == 0 &&
+      azurerm_mssql_database.db[name].max_size_gb == 32
+    ])
+    error_message = "Non-serverless SKUs must retain provider-normalized zero compute settings and default to 32 GB."
+  }
+}
+
+run "explicit_database_values" {
+  command = plan
+
+  variables {
+    databases = {
+      zero_capacity = {
+        min_capacity                = 0
+        auto_pause_delay_in_minutes = -1
+        max_size_gb                 = 64
+      }
+      serverless = {
+        sku_name                    = "GP_S_Gen5_2"
+        min_capacity                = 1
+        auto_pause_delay_in_minutes = 120
+        max_size_gb                 = 75
+      }
+      provisioned = {
+        sku_name                    = "GP_Gen5_2"
+        capacity_unit               = "Provisioned"
+        min_capacity                = 1
+        auto_pause_delay_in_minutes = 120
+        max_size_gb                 = 128
+      }
+      dtu = {
+        sku_name    = "S0"
+        max_size_gb = 10
+      }
+    }
+  }
+
+  assert {
+    condition = (
+      azurerm_mssql_database.db["zero_capacity"].min_capacity == 0 &&
+      azurerm_mssql_database.db["zero_capacity"].auto_pause_delay_in_minutes == -1 &&
+      azurerm_mssql_database.db["zero_capacity"].max_size_gb == 64 &&
+      length(azurerm_mssql_database.db["zero_capacity"].long_term_retention_policy) == 1
+    )
+    error_message = "Explicit zero capacity and disabled auto-pause must be preserved, including LTR eligibility."
+  }
+
+  assert {
+    condition = (
+      azurerm_mssql_database.db["serverless"].min_capacity == 1 &&
+      azurerm_mssql_database.db["serverless"].auto_pause_delay_in_minutes == 120 &&
+      azurerm_mssql_database.db["serverless"].max_size_gb == 75 &&
+      length(azurerm_mssql_database.db["serverless"].long_term_retention_policy) == 0
+    )
+    error_message = "Explicit serverless settings must be preserved."
+  }
+
+  assert {
+    condition = (
+      azurerm_mssql_database.db["provisioned"].min_capacity == 0 &&
+      azurerm_mssql_database.db["provisioned"].auto_pause_delay_in_minutes == 0 &&
+      azurerm_mssql_database.db["provisioned"].max_size_gb == 128 &&
+      azurerm_mssql_database.db["dtu"].max_size_gb == 10
+    )
+    error_message = "Explicit sizes must be preserved for non-serverless SKUs without enabling serverless compute."
+  }
+}
+
+run "pooled_and_opt_out_database_defaults" {
+  command = apply
+
+  variables {
+    elastic_pool = {}
+    databases = {
+      pooled = {}
+      pooled_null = {
+        sku_name                    = "ElasticPool"
+        min_capacity                = null
+        auto_pause_delay_in_minutes = null
+        max_size_gb                 = null
+      }
+      pooled_explicit = { max_size_gb = 64 }
+      standalone      = { use_elastic_pool = false }
+      standalone_null = {
+        use_elastic_pool            = false
+        min_capacity                = null
+        auto_pause_delay_in_minutes = null
+        max_size_gb                 = null
+      }
+    }
+  }
+
+  assert {
+    condition = alltrue([
+      for name in ["pooled", "pooled_null", "pooled_explicit"] :
+      azurerm_mssql_database.db[name].elastic_pool_id == output.elastic_pool_id &&
+      azurerm_mssql_database.db[name].min_capacity == 0 &&
+      azurerm_mssql_database.db[name].auto_pause_delay_in_minutes == 0 &&
+      azurerm_mssql_database.db[name].max_size_gb == (name == "pooled_explicit" ? 64 : 32)
+    ])
+    error_message = "Pooled databases must omit serverless compute and use 32 GB unless a size is explicitly supplied."
+  }
+
+  assert {
+    condition = alltrue([
+      for name in ["standalone", "standalone_null"] :
+      azurerm_mssql_database.db[name].elastic_pool_id == null &&
+      azurerm_mssql_database.db[name].min_capacity == 0.5 &&
+      azurerm_mssql_database.db[name].auto_pause_delay_in_minutes == 60 &&
+      azurerm_mssql_database.db[name].max_size_gb == 50
+    ])
+    error_message = "Pool opt-outs must retain standalone serverless defaults for omitted/null settings."
+  }
+}
+
+run "short_term_retention_defaults_and_explicit_values" {
+  command = plan
+
+  variables {
+    databases = {
+      omitted = {}
+      null    = { short_term_retention_policy = null }
+      empty   = { short_term_retention_policy = {} }
+      null_fields = {
+        short_term_retention_policy = {
+          retention_days           = null
+          backup_interval_in_hours = null
+        }
+      }
+      retention_only = { short_term_retention_policy = { retention_days = 14 } }
+      interval_only  = { short_term_retention_policy = { backup_interval_in_hours = 24 } }
+      explicit = {
+        short_term_retention_policy = {
+          retention_days           = 21
+          backup_interval_in_hours = 24
+        }
+      }
+    }
+  }
+
+  assert {
+    condition = alltrue([
+      for name in ["omitted", "null", "empty", "null_fields", "retention_only", "interval_only", "explicit"] :
+      azurerm_mssql_database.db[name].short_term_retention_policy[0].retention_days == (name == "explicit" ? 21 : name == "retention_only" ? 14 : 7) &&
+      azurerm_mssql_database.db[name].short_term_retention_policy[0].backup_interval_in_hours == (contains(["explicit", "interval_only"], name) ? 24 : 12)
+    ])
+    error_message = "Short-term retention must default missing/null fields to 7 days and 12 hours while preserving explicit fields."
+  }
+}
