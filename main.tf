@@ -97,7 +97,7 @@ resource "azurerm_mssql_server" "sqlsrv" {
 
 module "elastic_pool" {
   count  = local.elastic_pool_enabled == true ? 1 : 0
-  source = "git::https://github.com/Azure/terraform-azurerm-avm-res-sql-server.git//modules/elasticpool?ref=v0.2.0"
+  source = "git::https://github.com/miljodir/terraform-azurerm-avm-res-sql-server.git//modules/elasticpool?ref=v1.0"
 
   location = var.location
   name     = local.elastic_pool_name
