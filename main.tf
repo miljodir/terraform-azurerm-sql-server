@@ -97,10 +97,11 @@ resource "azurerm_mssql_server" "sqlsrv" {
 
 module "elastic_pool" {
   count  = local.elastic_pool_enabled == true ? 1 : 0
-  source = "git::https://github.com/Azure/terraform-azurerm-avm-res-sql-server.git//modules/elasticpool?ref=v0.2.0"
+  source = "git::https://github.com/miljodir/terraform-azurerm-avm-res-sql-server.git//modules/elasticpool?ref=v1.1.0"
 
-  location = var.location
-  name     = local.elastic_pool_name
+  location         = var.location
+  name             = local.elastic_pool_name
+  enable_telemetry = false
 
   license_type                   = try(var.elastic_pool.license_type, "LicenseIncluded")
   maintenance_configuration_name = try(var.elastic_pool.maintenance_configuration_name, "SQL_Default")
